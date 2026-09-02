@@ -1,0 +1,17 @@
+[project]
+name = "payzum_payments"
+authors = [{ name = "Payzum", email = "dev@payzum.com" }]
+description = "Payzum crypto/stablecoin payment gateway for Frappe / ERPNext"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "license.txt" }
+dynamic = ["version"]
+dependencies = ["payzum~=0.1.0"]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<17.0.0"
+payments = ">=0.0.1"

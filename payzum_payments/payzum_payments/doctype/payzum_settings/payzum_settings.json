@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "creation": "2026-09-02 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "api_key",
+  "webhook_secret",
+  "column_break_3",
+  "use_sandbox",
+  "pay_currency"
+ ],
+ "fields": [
+  {
+   "description": "From merchant.payzum.com → Settings → API Keys. The sandbox environment needs its own key.",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "API Key",
+   "reqd": 1
+  },
+  {
+   "description": "Shown once, at merchant creation or rotation. Used to verify the signature of payment notifications — orders are completed from those notifications, not from the buyer's redirect.",
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Webhook Secret",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Point at staging.payzum.com — an isolated environment with separate data and separate API keys.",
+   "fieldname": "use_sandbox",
+   "fieldtype": "Check",
+   "label": "Use Sandbox"
+  },
+  {
+   "default": "all",
+   "description": "\"all\" lets the buyer pick the asset and network on the hosted checkout page (limited to your merchant allowlist). Alternatively a specific code like \"usdcmatic\".",
+   "fieldname": "pay_currency",
+   "fieldtype": "Data",
+   "label": "Pay Currency"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-02 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Payzum Payments",
+ "name": "Payzum Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
