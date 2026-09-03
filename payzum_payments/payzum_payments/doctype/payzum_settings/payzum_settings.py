@@ -21,6 +21,7 @@ paid order.
 import json
 import re
 from contextlib import suppress
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
 import frappe
@@ -165,6 +166,16 @@ def ipn_handler(**kwargs):
 		return "already processed"
 
 	if status.is_paid():
+		if not _amount_matches(payload, order_id):
+			# Acknowledged but never fulfilled: the invoice was paid for a
+			# different amount or currency than this request records, and a
+			# retry would deliver the same figures.
+			frappe.log_error(
+				f"Payzum IPN for {order_id} reports {payload.get('price_amount')!r} "
+				f"{payload.get('price_currency')!r}, which does not match the invoice",
+				"Payzum IPN amount mismatch",
+			)
+			return "amount mismatch"
 		if not _finalize_success(order_id):
 			# Persist the failure but answer 5xx so a Payzum retry gets another
 			# attempt at fulfilment (e.g. a transient error in the reference
@@ -180,6 +191,29 @@ def ipn_handler(**kwargs):
 	# waiting / partially_paid: no state change. A partial payment is underpaid
 	# and observable only by polling; it must not fulfil anything.
 	return "ignored"
+
+
+def _amount_matches(payload, order_id) -> bool:
+	"""The verified payload's amount and currency must match the invoice.
+
+	Fails closed: a notification without a readable amount or currency must
+	never fulfil the order, however valid its signature.
+	"""
+	data = frappe._dict(
+		json.loads(frappe.db.get_value("Integration Request", order_id, "data") or "{}")
+	)
+	notified_amount = payload.get("price_amount")
+	notified_currency = payload.get("price_currency")
+	if notified_amount is None or isinstance(notified_amount, bool) or notified_currency is None:
+		return False
+	if cstr(notified_currency).lower() != cstr(data.currency).lower():
+		return False
+	try:
+		# Compared against the same 2-decimal rounding the invoice was created with.
+		delta = Decimal(cstr(notified_amount)) - Decimal(cstr(flt(data.amount, 2)))
+	except InvalidOperation:
+		return False
+	return abs(delta) < Decimal("0.005")
 
 
 def _finalize_success(order_id) -> bool:

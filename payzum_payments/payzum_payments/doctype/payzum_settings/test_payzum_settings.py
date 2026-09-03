@@ -27,15 +27,19 @@ def signed_ipn(payload: dict, secret: str = SECRET, sig: str | None = None) -> R
 	return Request(builder.get_environ())
 
 
-def ipn_body(order_id: str, payment_status: str) -> dict:
+def ipn_body(order_id: str, payment_status: str, **overrides) -> dict:
 	# The real body is the full NpPayment shape; the handler only reads these.
-	return {
+	body = {
 		"payment_id": "pzi_test000000000000000000",
 		"payment_status": payment_status,
 		"order_id": order_id,
 		"event_at": int(time.time()),
 		"event_id": "ipn_" + "0" * 32,
+		"price_amount": "29.99",
+		"price_currency": "usd",
 	}
+	body.update(overrides)
+	return {k: v for k, v in body.items() if v is not None}
 
 
 class TestPayzumSettings(FrappeTestCase):
@@ -87,6 +91,32 @@ class TestPayzumSettings(FrappeTestCase):
 	def test_finished_completes_the_request(self):
 		name = self.make_integration_request()
 		self.assertEqual(self.call_ipn(signed_ipn(ipn_body(name, "finished"))), "ok")
+		self.assertEqual(self.request_status(name), "Completed")
+
+	def test_amount_mismatch_never_fulfils(self):
+		name = self.make_integration_request()
+		req = signed_ipn(ipn_body(name, "finished", price_amount="0.01"))
+		self.assertEqual(self.call_ipn(req), "amount mismatch")
+		self.assertEqual(self.request_status(name), "Queued")
+
+	def test_missing_amount_never_fulfils(self):
+		# Fail closed: a signed notification without a readable amount must not fulfil.
+		name = self.make_integration_request()
+		req = signed_ipn(ipn_body(name, "finished", price_amount=None))
+		self.assertEqual(self.call_ipn(req), "amount mismatch")
+		self.assertEqual(self.request_status(name), "Queued")
+
+	def test_wrong_currency_never_fulfils(self):
+		name = self.make_integration_request()
+		req = signed_ipn(ipn_body(name, "finished", price_currency="jpy"))
+		self.assertEqual(self.call_ipn(req), "amount mismatch")
+		self.assertEqual(self.request_status(name), "Queued")
+
+	def test_amount_within_half_cent_fulfils(self):
+		# "29.99" recorded, "29.990" delivered — decimal comparison, not string equality.
+		name = self.make_integration_request()
+		req = signed_ipn(ipn_body(name, "finished", price_amount="29.990"))
+		self.assertEqual(self.call_ipn(req), "ok")
 		self.assertEqual(self.request_status(name), "Completed")
 
 	def test_redelivery_of_a_settled_invoice_is_a_noop(self):
